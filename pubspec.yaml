@@ -1,0 +1,6 @@
+name: just_audio_fork
+description: fork from original just audio
+version: 0.9.34
+repository: https://github.com/womanly-corp/just_audio_fork
+environment:
+  sdk: ">=2.18.0 <4.0.0"

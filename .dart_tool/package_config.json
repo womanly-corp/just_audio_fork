@@ -1,0 +1,14 @@
+{
+  "configVersion": 2,
+  "packages": [
+    {
+      "name": "just_audio_fork",
+      "rootUri": "../",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    }
+  ],
+  "generated": "2023-11-01T16:26:45.711498Z",
+  "generator": "pub",
+  "generatorVersion": "3.0.6"
+}
