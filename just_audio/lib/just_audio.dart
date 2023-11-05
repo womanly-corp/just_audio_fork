@@ -93,6 +93,7 @@ class AudioPlayer {
   /// subscribe to the new platform's events.
   StreamSubscription? _playerDataSubscription;
 
+  StreamSubscription? _androidAudioAttributesSubscription;
   StreamSubscription? _becomingNoisyEventSubscription;
   StreamSubscription? _interruptionEventSubscription;
 
@@ -237,7 +238,7 @@ class AudioPlayer {
     // Respond to changes to AndroidAudioAttributes configuration.
     if (androidApplyAudioAttributes && _isAndroid()) {
       AudioSession.instance.then((audioSession) {
-        audioSession.configurationStream
+        _androidAudioAttributesSubscription = audioSession.configurationStream
             .map((conf) => conf.androidAudioAttributes)
             .where((attributes) => attributes != null)
             .cast<AndroidAudioAttributes>()
@@ -1134,6 +1135,7 @@ class AudioPlayer {
     await _pitchSubject.close();
     await _sequenceSubject.close();
     await _shuffleIndicesSubject.close();
+    await _androidAudioAttributesSubscription?.cancel();
     await _becomingNoisyEventSubscription?.cancel();
     await _interruptionEventSubscription?.cancel();
   }
