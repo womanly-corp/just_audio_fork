@@ -93,6 +93,9 @@ class AudioPlayer {
   /// subscribe to the new platform's events.
   StreamSubscription? _playerDataSubscription;
 
+  StreamSubscription? _becomingNoisyEventSubscription;
+  StreamSubscription? _interruptionEventSubscription;
+
   final String _id;
   final _proxy = _ProxyHttpServer();
   AudioSource? _audioSource;
@@ -244,10 +247,12 @@ class AudioPlayer {
     }
     if (handleInterruptions) {
       AudioSession.instance.then((session) {
-        session.becomingNoisyEventStream.listen((_) {
+        _becomingNoisyEventSubscription =
+            session.becomingNoisyEventStream.listen((_) {
           pause();
         });
-        session.interruptionEventStream.listen((event) {
+        _interruptionEventSubscription =
+            session.interruptionEventStream.listen((event) {
           if (event.begin) {
             switch (event.type) {
               case AudioInterruptionType.duck:
@@ -1129,6 +1134,8 @@ class AudioPlayer {
     await _pitchSubject.close();
     await _sequenceSubject.close();
     await _shuffleIndicesSubject.close();
+    await _becomingNoisyEventSubscription?.cancel();
+    await _interruptionEventSubscription?.cancel();
   }
 
   /// Switch to using the native platform when [active] is `true` and using the
