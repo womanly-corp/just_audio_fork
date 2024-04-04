@@ -511,6 +511,8 @@ class _PlayerAudioHandler extends BaseAudioHandler
       ConcatenatingInsertAllRequest request) async {
     final cat = _source!.findCat(request.id)!;
     cat.children.insertAll(request.index, request.children);
+	  cat.shuffleOrder.clear();
+	  cat.shuffleOrder.addAll(request.shuffleOrder);
     _updateShuffleIndices();
     _broadcastStateIfActive();
     _updateQueue();
@@ -521,6 +523,8 @@ class _PlayerAudioHandler extends BaseAudioHandler
       ConcatenatingRemoveRangeRequest request) async {
     final cat = _source!.findCat(request.id)!;
     cat.children.removeRange(request.startIndex, request.endIndex);
+	  cat.shuffleOrder.clear();
+  	cat.shuffleOrder.addAll(request.shuffleOrder);
     _updateShuffleIndices();
     _broadcastStateIfActive();
     _updateQueue();
