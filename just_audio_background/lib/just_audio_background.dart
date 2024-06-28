@@ -13,6 +13,27 @@ export 'package:audio_service/audio_service.dart' show MediaItem;
 late SwitchAudioHandler _audioHandler;
 late JustAudioPlatform _platform;
 
+class CustomCallbacks {
+  final Future<void> Function()? onRewind;
+  final Future<void> Function()? onFastForward;
+
+  CustomCallbacks({
+    this.onRewind,
+    this.onFastForward,
+  });
+}
+
+const kMediaControlRewind15seconds = MediaControl(
+  androidIcon: 'drawable/r96',
+  label: 'Rewind',
+  action: MediaAction.rewind,
+);
+const kMediaControlFastForward15seconds = MediaControl(
+  androidIcon: 'drawable/f96',
+  label: 'Rewind',
+  action: MediaAction.fastForward,
+);
+
 /// Provides the [init] method to initialise just_audio for background playback.
 class JustAudioBackground {
   /// Initialise just_audio for background playback. This should be called from
@@ -45,32 +66,37 @@ class JustAudioBackground {
     bool androidStopForegroundOnPause = true,
     int? artDownscaleWidth,
     int? artDownscaleHeight,
-    Duration fastForwardInterval = const Duration(seconds: 10),
-    Duration rewindInterval = const Duration(seconds: 10),
+    Duration fastForwardInterval = const Duration(seconds: 15),
+    Duration rewindInterval = const Duration(seconds: 15),
+    Future<void> Function()? customOnRewind,
+    Future<void> Function()? customOnFastForward,
     bool preloadArtwork = false,
     Map<String, dynamic>? androidBrowsableRootExtras,
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
     await _JustAudioBackgroundPlugin.setup(
-      androidResumeOnClick: androidResumeOnClick,
-      androidNotificationChannelId: androidNotificationChannelId,
-      androidNotificationChannelName: androidNotificationChannelName,
-      androidNotificationChannelDescription:
-          androidNotificationChannelDescription,
-      notificationColor: notificationColor,
-      androidNotificationIcon: androidNotificationIcon,
-      androidShowNotificationBadge: androidShowNotificationBadge,
-      androidNotificationClickStartsActivity:
-          androidNotificationClickStartsActivity,
-      androidNotificationOngoing: androidNotificationOngoing,
-      androidStopForegroundOnPause: androidStopForegroundOnPause,
-      artDownscaleWidth: artDownscaleWidth,
-      artDownscaleHeight: artDownscaleHeight,
-      fastForwardInterval: fastForwardInterval,
-      rewindInterval: rewindInterval,
-      preloadArtwork: preloadArtwork,
-      androidBrowsableRootExtras: androidBrowsableRootExtras,
-    );
+        androidResumeOnClick: androidResumeOnClick,
+        androidNotificationChannelId: androidNotificationChannelId,
+        androidNotificationChannelName: androidNotificationChannelName,
+        androidNotificationChannelDescription:
+            androidNotificationChannelDescription,
+        notificationColor: notificationColor,
+        androidNotificationIcon: androidNotificationIcon,
+        androidShowNotificationBadge: androidShowNotificationBadge,
+        androidNotificationClickStartsActivity:
+            androidNotificationClickStartsActivity,
+        androidNotificationOngoing: androidNotificationOngoing,
+        androidStopForegroundOnPause: androidStopForegroundOnPause,
+        artDownscaleWidth: artDownscaleWidth,
+        artDownscaleHeight: artDownscaleHeight,
+        fastForwardInterval: fastForwardInterval,
+        rewindInterval: rewindInterval,
+        preloadArtwork: preloadArtwork,
+        androidBrowsableRootExtras: androidBrowsableRootExtras,
+        customCallbacks: CustomCallbacks(
+          onRewind: customOnRewind,
+          onFastForward: customOnFastForward,
+        ));
   }
 }
 
@@ -92,7 +118,9 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
     Duration rewindInterval = const Duration(seconds: 10),
     bool preloadArtwork = false,
     Map<String, dynamic>? androidBrowsableRootExtras,
+    CustomCallbacks? customCallbacks,
   }) async {
+    _customCallbacks = customCallbacks;
     _platform = JustAudioPlatform.instance;
     JustAudioPlatform.instance = _JustAudioBackgroundPlugin();
     _audioHandler = await AudioService.init(
@@ -120,6 +148,8 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
     );
   }
 
+  static CustomCallbacks? _customCallbacks;
+
   _JustAudioPlayer? _player;
   String? _playerId;
 
@@ -134,7 +164,10 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
       );
     }
     _playerId = request.id;
-    _player ??= _JustAudioPlayer(initRequest: request);
+    _player ??= _JustAudioPlayer(
+      initRequest: request,
+      customCallbacks: _customCallbacks,
+    );
     return _player!;
   }
 
@@ -169,9 +202,12 @@ class _JustAudioPlayer extends AudioPlayerPlatform {
   final playerDataController =
       StreamController<PlayerDataMessage>.broadcast(sync: true);
 
-  _JustAudioPlayer({required this.initRequest}) : super(initRequest.id) {
+  _JustAudioPlayer({
+    required this.initRequest,
+    required CustomCallbacks? customCallbacks,
+  }) : super(initRequest.id) {
     eventController.onCancel = _playerAudioHandler.cancelStreamSubscriptions;
-    _playerAudioHandler._initPlayer(initRequest);
+    _playerAudioHandler._initPlayer(initRequest, customCallbacks);
     _audioHandler.inner = _playerAudioHandler;
     _audioHandler.customEvent
         .whereType<PlaybackEventMessage>()
@@ -379,8 +415,11 @@ class _PlayerAudioHandler extends BaseAudioHandler
   List<MediaItem> get currentQueue => queue.value;
   StreamSubscription<TrackInfo>? _trackInfoSubscription;
 
-  Future<void> _initPlayer(InitRequest initRequest) =>
+  final CustomCallbacks? customCallbacks;
+
+  Future<void> _initPlayer(InitRequest initRequest, CustomCallbacks newCustomCallbacks) =>
       _lock.synchronized(() async {
+        customCallbacks = newCustomCallbacks;
         final player = await _platform.init(initRequest);
         _playerCompleter.complete(player);
         final playbackEventMessageStream = player.playbackEventMessageStream;
@@ -674,11 +713,22 @@ class _PlayerAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> fastForward() =>
-      _seekRelative(AudioService.config.fastForwardInterval);
+  Future<void> fastForward() {
+    if (customCallbacks?.onFastForward != null) {
+      return customCallbacks!.onFastForward!.call();
+    } else {
+      return _seekRelative(AudioService.config.fastForwardInterval);
+    }
+  }
 
   @override
-  Future<void> rewind() => _seekRelative(-AudioService.config.rewindInterval);
+  Future<void> rewind() {
+    if (customCallbacks?.onRewind != null) {
+      return customCallbacks!.onRewind!.call();
+    } else {
+      return _seekRelative(-AudioService.config.rewindInterval);
+    }
+  }
 
   @override
   Future<void> seekForward(bool begin) async => _seekContinuously(begin, 1);
@@ -766,10 +816,9 @@ class _PlayerAudioHandler extends BaseAudioHandler
   /// Broadcasts the current state to all clients.
   void _broadcastState() {
     final controls = [
-      if (hasPrevious) MediaControl.skipToPrevious,
+      kMediaControlRewind15seconds,
       if (_playing) MediaControl.pause else MediaControl.play,
-      MediaControl.stop,
-      if (hasNext) MediaControl.skipToNext,
+      kMediaControlFastForward15seconds,
     ];
     playbackState.add(playbackState.nvalue!.copyWith(
       controls: controls,
