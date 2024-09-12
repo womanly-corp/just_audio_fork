@@ -1,3 +1,7 @@
+## 0.9.41
+
+* Migrate from ExoPlayer to Media3
+
 ## 0.9.40
 
 * Fix JDK 21 compile error.
