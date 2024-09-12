@@ -48,11 +48,10 @@ android {
     }
 
     dependencies {
-        def exoplayer_version = "2.18.7"
-        implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
-        implementation "com.google.android.exoplayer:exoplayer-dash:$exoplayer_version"
-        implementation "com.google.android.exoplayer:exoplayer-hls:$exoplayer_version"
-        implementation "com.google.android.exoplayer:exoplayer-smoothstreaming:$exoplayer_version"
+        def exoplayer_version = "1.0.2"
+        implementation "androidx.media3:media3-exoplayer:$exoplayer_version"
+        implementation "androidx.media3:media3-exoplayer-dash:$exoplayer_version"
+        implementation "androidx.media3:media3-exoplayer-hls:$exoplayer_version"
+        implementation "androidx.media3:media3-exoplayer-smoothstreaming:$exoplayer_version"
     }
 }
-
