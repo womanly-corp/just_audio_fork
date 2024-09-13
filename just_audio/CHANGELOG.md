@@ -1,6 +1,6 @@
 ## 0.9.41
 
-* Migrate from ExoPlayer to Media3
+* Migrate from ExoPlayer to Media3 (@hansvdwd)
 
 ## 0.9.40
 
