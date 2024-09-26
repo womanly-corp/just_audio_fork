@@ -1,3 +1,7 @@
+## 0.0.1-beta.13
+
+* Support rxdart 0.28.x.
+
 ## 0.0.1-beta.12
 
 * Support setWebCrossOrigin.
