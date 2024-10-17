@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:html';
+import 'dart:js_interop';
 import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
+import 'package:web/web.dart';
 
 /// The web implementation of [JustAudioPlatform].
 class JustAudioPlugin extends JustAudioPlatform {
@@ -99,8 +100,11 @@ abstract class JustAudioPlayer extends AudioPlayerPlatform {
 
 /// An HTML5-specific implementation of [JustAudioPlayer].
 class Html5AudioPlayer extends JustAudioPlayer {
-  final _audioElement = AudioElement();
-  Completer? _durationCompleter;
+  // Uncomment after: https://github.com/dart-lang/web/issues/124
+  //final _audioElement = HTMLAudioElement();
+  final _audioElement = document.createElement('audio') as HTMLAudioElement;
+  late final _playPauseQueue = _PlayPauseQueue(_audioElement);
+  Completer<dynamic>? _durationCompleter;
   AudioSourcePlayer? _audioSourcePlayer;
   LoopModeMessage _loopMode = LoopModeMessage.off;
   bool _shuffleModeEnabled = false;
@@ -108,36 +112,54 @@ class Html5AudioPlayer extends JustAudioPlayer {
 
   /// Creates an [Html5AudioPlayer] with the given [id].
   Html5AudioPlayer({required String id}) : super(id: id) {
-    _audioElement.addEventListener('durationchange', (event) {
-      _durationCompleter?.complete();
-      broadcastPlaybackEvent();
-    });
-    _audioElement.addEventListener('error', (event) {
-      _durationCompleter?.completeError(_audioElement.error!);
-    });
-    _audioElement.addEventListener('ended', (event) async {
-      _currentAudioSourcePlayer?.complete();
-    });
-    _audioElement.addEventListener('timeupdate', (event) {
-      _currentAudioSourcePlayer
-          ?.timeUpdated(_audioElement.currentTime as double);
-    });
-    _audioElement.addEventListener('loadstart', (event) {
-      transition(ProcessingStateMessage.buffering);
-    });
-    _audioElement.addEventListener('waiting', (event) {
-      transition(ProcessingStateMessage.buffering);
-    });
-    _audioElement.addEventListener('stalled', (event) {
-      transition(ProcessingStateMessage.buffering);
-    });
-    _audioElement.addEventListener('canplaythrough', (event) {
-      _audioElement.playbackRate = _speed;
-      transition(ProcessingStateMessage.ready);
-    });
-    _audioElement.addEventListener('progress', (event) {
-      broadcastPlaybackEvent();
-    });
+    _audioElement.addEventListener(
+        'durationchange',
+        (Event event) {
+          _durationCompleter?.complete();
+          broadcastPlaybackEvent();
+        }.toJS);
+    _audioElement.addEventListener(
+        'error',
+        (Event event) {
+          _durationCompleter?.completeError(_audioElement.error!);
+        }.toJS);
+    _audioElement.addEventListener(
+        'ended',
+        (Event event) {
+          _currentAudioSourcePlayer?.complete();
+        }.toJS);
+    _audioElement.addEventListener(
+        'timeupdate',
+        (Event event) {
+          _currentAudioSourcePlayer
+              ?.timeUpdated(_audioElement.currentTime.toDouble());
+        }.toJS);
+    _audioElement.addEventListener(
+        'loadstart',
+        (Event event) {
+          transition(ProcessingStateMessage.buffering);
+        }.toJS);
+    _audioElement.addEventListener(
+        'waiting',
+        (Event event) {
+          transition(ProcessingStateMessage.buffering);
+        }.toJS);
+    _audioElement.addEventListener(
+        'stalled',
+        (Event event) {
+          transition(ProcessingStateMessage.buffering);
+        }.toJS);
+    _audioElement.addEventListener(
+        'canplaythrough',
+        (Event event) {
+          _audioElement.playbackRate = _speed;
+          transition(ProcessingStateMessage.ready);
+        }.toJS);
+    _audioElement.addEventListener(
+        'progress',
+        (Event event) {
+          broadcastPlaybackEvent();
+        }.toJS);
   }
 
   /// The current playback order, depending on whether shuffle mode is enabled.
@@ -189,6 +211,7 @@ class Html5AudioPlayer extends JustAudioPlayer {
             }
           }
         } else {
+          await _currentAudioSourcePlayer?.pause();
           transition(ProcessingStateMessage.completed);
         }
       }
@@ -324,6 +347,16 @@ class Html5AudioPlayer extends JustAudioPlayer {
 
     internalSetShuffleOrder(request.audioSourceMessage);
     return SetShuffleOrderResponse();
+  }
+
+  @override
+  Future<SetWebCrossOriginResponse> setWebCrossOrigin(
+      SetWebCrossOriginRequest request) async {
+    _audioElement.crossOrigin = const {
+      WebCrossOriginMessage.anonymous: 'anonymous',
+      WebCrossOriginMessage.useCredentials: 'use-credentials',
+    }[request.crossOrigin];
+    return SetWebCrossOriginResponse();
   }
 
   @override
@@ -569,7 +602,9 @@ abstract class IndexedAudioSourcePlayer extends AudioSourcePlayer {
   Duration get bufferedPosition;
 
   /// The audio element that renders the audio.
-  AudioElement get _audioElement => html5AudioPlayer._audioElement;
+  HTMLAudioElement get _audioElement => html5AudioPlayer._audioElement;
+
+  _PlayPauseQueue get _playPauseQueue => html5AudioPlayer._playPauseQueue;
 
   @override
   String toString() => "$runtimeType";
@@ -581,10 +616,10 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
   final Uri uri;
 
   /// The headers to include in the request (unsupported).
-  final Map? headers;
+  final Map<String, String>? headers;
   double? _resumePos;
   Duration? _duration;
-  Completer? _completer;
+  Completer<dynamic>? _completer;
   int? _initialPos;
 
   UriAudioSourcePlayer(
@@ -613,7 +648,7 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
   @override
   Future<void> play() async {
     _audioElement.currentTime = _resumePos!;
-    await _audioElement.play();
+    await _playPauseQueue.play();
     _completer = Completer<dynamic>();
     await _completer!.future;
     _completer = null;
@@ -622,7 +657,7 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
   @override
   Future<void> pause() async {
     _resumePos = _audioElement.currentTime as double?;
-    _audioElement.pause();
+    _playPauseQueue.pause();
     _interruptPlay();
   }
 
@@ -655,7 +690,7 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
   @override
   Duration get position {
     if (_initialPos != null) return Duration(milliseconds: _initialPos!);
-    final seconds = _audioElement.currentTime as double;
+    final seconds = _audioElement.currentTime;
     return Duration(milliseconds: (seconds * 1000).toInt());
   }
 
@@ -675,22 +710,22 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
 
 /// A player for a [ProgressiveAudioSourceMessage].
 class ProgressiveAudioSourcePlayer extends UriAudioSourcePlayer {
-  ProgressiveAudioSourcePlayer(
-      Html5AudioPlayer html5AudioPlayer, String id, Uri uri, Map? headers)
+  ProgressiveAudioSourcePlayer(Html5AudioPlayer html5AudioPlayer, String id,
+      Uri uri, Map<String, String>? headers)
       : super(html5AudioPlayer, id, uri, headers);
 }
 
 /// A player for a [DashAudioSourceMessage].
 class DashAudioSourcePlayer extends UriAudioSourcePlayer {
-  DashAudioSourcePlayer(
-      Html5AudioPlayer html5AudioPlayer, String id, Uri uri, Map? headers)
+  DashAudioSourcePlayer(Html5AudioPlayer html5AudioPlayer, String id, Uri uri,
+      Map<String, String>? headers)
       : super(html5AudioPlayer, id, uri, headers);
 }
 
 /// A player for a [HlsAudioSourceMessage].
 class HlsAudioSourcePlayer extends UriAudioSourcePlayer {
-  HlsAudioSourcePlayer(
-      Html5AudioPlayer html5AudioPlayer, String id, Uri uri, Map? headers)
+  HlsAudioSourcePlayer(Html5AudioPlayer html5AudioPlayer, String id, Uri uri,
+      Map<String, String>? headers)
       : super(html5AudioPlayer, id, uri, headers);
 }
 
@@ -790,12 +825,17 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
         effectiveStart.inMilliseconds + initialPosition;
     _resumePos = absoluteInitialPosition / 1000.0;
     final fullDuration = (await html5AudioPlayer.loadUri(audioSourcePlayer.uri,
-        Duration(milliseconds: absoluteInitialPosition)))!;
+        Duration(milliseconds: absoluteInitialPosition)));
     _initialPos = null;
-    _duration = Duration(
-        milliseconds: min((end ?? fullDuration).inMilliseconds,
-                fullDuration.inMilliseconds) -
-            effectiveStart.inMilliseconds);
+    if (fullDuration != null) {
+      _duration = Duration(
+          milliseconds: min((end ?? fullDuration).inMilliseconds,
+                  fullDuration.inMilliseconds) -
+              effectiveStart.inMilliseconds);
+    } else if (end != null) {
+      _duration = Duration(
+          milliseconds: end!.inMilliseconds - effectiveStart.inMilliseconds);
+    }
     return _duration;
   }
 
@@ -804,10 +844,10 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
 
   @override
   Future<void> play() async {
-    _interruptPlay(ClipInterruptReason.simultaneous);
-    _audioElement.currentTime = _resumePos!;
-    await _audioElement.play();
+    if (_completer != null) return;
     _completer = Completer<ClipInterruptReason>();
+    _audioElement.currentTime = _resumePos!;
+    await _playPauseQueue.play();
     ClipInterruptReason reason;
     while ((reason = await _completer!.future) == ClipInterruptReason.seek) {
       _completer = Completer<ClipInterruptReason>();
@@ -822,7 +862,7 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
   Future<void> pause() async {
     _interruptPlay(ClipInterruptReason.pause);
     _resumePos = _audioElement.currentTime as double?;
-    _audioElement.pause();
+    _playPauseQueue.pause();
   }
 
   @override
@@ -854,7 +894,7 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
   @override
   Duration get position {
     if (_initialPos != null) return Duration(milliseconds: _initialPos!);
-    final seconds = _audioElement.currentTime as double;
+    final seconds = _audioElement.currentTime;
     var position = Duration(milliseconds: (seconds * 1000).toInt());
     position -= effectiveStart;
     if (position < Duration.zero) {
@@ -890,7 +930,7 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
 }
 
 /// Reasons why playback of a clipping audio source may be interrupted.
-enum ClipInterruptReason { end, pause, seek, simultaneous }
+enum ClipInterruptReason { end, pause, seek }
 
 /// A player for a [LoopingAudioSourceMessage].
 class LoopingAudioSourcePlayer extends AudioSourcePlayer {
@@ -920,5 +960,48 @@ class LoopingAudioSourcePlayer extends AudioSourcePlayer {
       offset += childShuffleOrder.length;
     }
     return order;
+  }
+}
+
+class _PlayPauseRequest {
+  final bool playing;
+  final completer = Completer<void>();
+
+  _PlayPauseRequest(this.playing);
+}
+
+class _PlayPauseQueue {
+  final HTMLAudioElement audioElement;
+  final _queue = StreamController<_PlayPauseRequest>();
+
+  _PlayPauseQueue(this.audioElement) {
+    _run();
+  }
+
+  Future<void> play() async {
+    final request = _PlayPauseRequest(true);
+    _queue.add(request);
+    await request.completer.future;
+  }
+
+  Future<void> pause() async {
+    final request = _PlayPauseRequest(false);
+    _queue.add(request);
+    await request.completer.future;
+  }
+
+  Future<void> _run() async {
+    await for (var request in _queue.stream) {
+      try {
+        if (request.playing) {
+          await audioElement.play().toDart;
+        } else {
+          audioElement.pause();
+        }
+        request.completer.complete();
+      } catch (e, st) {
+        request.completer.completeError(e, st);
+      }
+    }
   }
 }

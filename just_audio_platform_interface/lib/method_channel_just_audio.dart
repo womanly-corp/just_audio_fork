@@ -6,7 +6,7 @@ import 'just_audio_platform_interface.dart';
 
 /// An implementation of [JustAudioPlatform] that uses method channels.
 class MethodChannelJustAudio extends JustAudioPlatform {
-  static final _mainChannel = MethodChannel('com.ryanheise.just_audio.methods');
+  static const _mainChannel = MethodChannel('com.ryanheise.just_audio.methods');
 
   @override
   Future<AudioPlayerPlatform> init(InitRequest request) async {
@@ -145,6 +145,14 @@ class MethodChannelAudioPlayer extends AudioPlayerPlatform {
     return SetPreferredPeakBitRateResponse.fromMap(
         (await _channel.invokeMethod<Map<dynamic, dynamic>>(
             'setPreferredPeakBitRate', request.toMap()))!);
+  }
+
+  @override
+  Future<SetAllowsExternalPlaybackResponse> setAllowsExternalPlayback(
+      SetAllowsExternalPlaybackRequest request) async {
+    return SetAllowsExternalPlaybackResponse.fromMap(
+        (await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'setAllowsExternalPlayback', request.toMap()))!);
   }
 
   @override

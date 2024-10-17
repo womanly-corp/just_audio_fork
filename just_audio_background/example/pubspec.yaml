@@ -3,12 +3,12 @@ description: Demonstrates how to use the just_audio plugin.
 publish_to: 'none'
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  audio_session: ^0.1.6+1
+  audio_session: ^0.1.14
   rxdart: ^0.27.2
   just_audio:
     path: ../../just_audio
@@ -26,6 +26,7 @@ dev_dependencies:
   # TODO: uncomment these dependencies when they have nullsafe versions.
   # flutter_driver:
   #   sdk: flutter
+  flutter_lints: ^2.0.1
   flutter_test:
     sdk: flutter
   # integration_test: ^1.0.1

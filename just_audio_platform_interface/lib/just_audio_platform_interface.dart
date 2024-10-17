@@ -74,7 +74,7 @@ abstract class AudioPlayerPlatform {
 
   /// A broadcast stream of data updates.
   Stream<PlayerDataMessage> get playerDataMessageStream =>
-      Stream<PlayerDataMessage>.empty();
+      const Stream<PlayerDataMessage>.empty();
 
   /// Loads an audio source.
   Future<LoadResponse> load(LoadRequest request) {
@@ -154,6 +154,14 @@ abstract class AudioPlayerPlatform {
         "setPreferredPeakBitRate() has not been implemented.");
   }
 
+  /// On iOS and macOS, sets the allowsExternalPlayback option, and does nothing
+  /// on other platforms.
+  Future<SetAllowsExternalPlaybackResponse> setAllowsExternalPlayback(
+      SetAllowsExternalPlaybackRequest request) {
+    throw UnimplementedError(
+        "setAllowsExternalPlayback() has not been implemented.");
+  }
+
   /// Seeks to the given index and position.
   Future<SeekResponse> seek(SeekRequest request) {
     throw UnimplementedError("seek() has not been implemented.");
@@ -221,6 +229,12 @@ abstract class AudioPlayerPlatform {
       AndroidEqualizerBandSetGainRequest request) {
     throw UnimplementedError(
         "androidEqualizerBandSetGain() has not been implemented.");
+  }
+
+  /// Sets the 'crossOrigin' attribute on the web audio element.
+  Future<SetWebCrossOriginResponse> setWebCrossOrigin(
+      SetWebCrossOriginRequest request) {
+    throw UnimplementedError("setWebCrossOrigin() has not been implemented.");
   }
 }
 
@@ -388,12 +402,14 @@ class InitRequest {
   final AudioLoadConfigurationMessage? audioLoadConfiguration;
   final List<AudioEffectMessage> androidAudioEffects;
   final List<AudioEffectMessage> darwinAudioEffects;
+  final bool? androidOffloadSchedulingEnabled;
 
   InitRequest({
     required this.id,
     this.audioLoadConfiguration,
     this.androidAudioEffects = const [],
     this.darwinAudioEffects = const [],
+    this.androidOffloadSchedulingEnabled,
   });
 
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -405,6 +421,7 @@ class InitRequest {
         'darwinAudioEffects': darwinAudioEffects
             .map((audioEffect) => audioEffect.toMap())
             .toList(),
+        'androidOffloadSchedulingEnabled': androidOffloadSchedulingEnabled,
       };
 }
 
@@ -695,6 +712,25 @@ class SetPreferredPeakBitRateRequest {
 class SetPreferredPeakBitRateResponse {
   static SetPreferredPeakBitRateResponse fromMap(Map<dynamic, dynamic> map) =>
       SetPreferredPeakBitRateResponse();
+}
+
+/// Information communicated to the platform implementation when setting the
+/// automaticallyWaitsToMinimizeStalling option.
+class SetAllowsExternalPlaybackRequest {
+  final bool allowsExternalPlayback;
+
+  SetAllowsExternalPlaybackRequest({required this.allowsExternalPlayback});
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+        'allowsExternalPlayback': allowsExternalPlayback,
+      };
+}
+
+/// Information returned by the platform implementation after setting the
+/// automaticallyWaitsToMinimizeStalling option.
+class SetAllowsExternalPlaybackResponse {
+  static SetAllowsExternalPlaybackResponse fromMap(Map<dynamic, dynamic> map) =>
+      SetAllowsExternalPlaybackResponse();
 }
 
 /// Information communicated to the platform implementation when seeking to a
@@ -1005,6 +1041,58 @@ class AndroidLivePlaybackSpeedControlMessage {
       };
 }
 
+/// Progressive audio source options to be communicated with the platform
+/// implementation.
+class ProgressiveAudioSourceOptionsMessage {
+  final AndroidExtractorOptionsMessage? androidExtractorOptions;
+  final DarwinAssetOptionsMessage? darwinAssetOptions;
+
+  const ProgressiveAudioSourceOptionsMessage({
+    this.androidExtractorOptions,
+    this.darwinAssetOptions,
+  });
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+        'androidExtractorOptions': androidExtractorOptions?.toMap(),
+        'darwinAssetOptions': darwinAssetOptions?.toMap(),
+      };
+}
+
+/// Options for loading audio assets on iOS/macOS to be communicated with the
+/// platform implementation.
+class DarwinAssetOptionsMessage {
+  final bool preferPreciseDurationAndTiming;
+
+  const DarwinAssetOptionsMessage({
+    required this.preferPreciseDurationAndTiming,
+  });
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+        'preferPreciseDurationAndTiming': preferPreciseDurationAndTiming,
+      };
+}
+
+/// Options for extracting media files on Android to be communicated with the
+/// platform implementation.
+class AndroidExtractorOptionsMessage {
+  final bool constantBitrateSeekingEnabled;
+  final bool constantBitrateSeekingAlwaysEnabled;
+  final int mp3Flags;
+
+  const AndroidExtractorOptionsMessage({
+    required this.constantBitrateSeekingEnabled,
+    required this.constantBitrateSeekingAlwaysEnabled,
+    required this.mp3Flags,
+  });
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+        'constantBitrateSeekingEnabled': constantBitrateSeekingEnabled,
+        'constantBitrateSeekingAlwaysEnabled':
+            constantBitrateSeekingAlwaysEnabled,
+        'mp3Flags': mp3Flags,
+      };
+}
+
 /// Information about an audio source to be communicated with the platform
 /// implementation.
 abstract class AudioSourceMessage {
@@ -1021,7 +1109,7 @@ abstract class IndexedAudioSourceMessage extends AudioSourceMessage {
   /// Since the tag type is unknown, this can only be used by platform
   /// implementations that pass by reference.
   final dynamic tag;
-  IndexedAudioSourceMessage({required String id, this.tag}) : super(id: id);
+  IndexedAudioSourceMessage({required super.id, this.tag});
 }
 
 /// Information about a URI audio source to be communicated with the platform
@@ -1031,22 +1119,25 @@ abstract class UriAudioSourceMessage extends IndexedAudioSourceMessage {
   final Map<String, String>? headers;
 
   UriAudioSourceMessage({
-    required String id,
+    required super.id,
     required this.uri,
     this.headers,
-    dynamic tag,
-  }) : super(id: id, tag: tag);
+    super.tag,
+  });
 }
 
 /// Information about a progressive audio source to be communicated with the
 /// platform implementation.
 class ProgressiveAudioSourceMessage extends UriAudioSourceMessage {
+  final ProgressiveAudioSourceOptionsMessage? options;
+
   ProgressiveAudioSourceMessage({
-    required String id,
-    required String uri,
-    Map<String, String>? headers,
-    dynamic tag,
-  }) : super(id: id, uri: uri, headers: headers, tag: tag);
+    required super.id,
+    required super.uri,
+    super.headers,
+    super.tag,
+    this.options,
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1054,6 +1145,7 @@ class ProgressiveAudioSourceMessage extends UriAudioSourceMessage {
         'id': id,
         'uri': uri,
         'headers': headers,
+        'options': options?.toMap(),
       };
 }
 
@@ -1061,11 +1153,11 @@ class ProgressiveAudioSourceMessage extends UriAudioSourceMessage {
 /// implementation.
 class DashAudioSourceMessage extends UriAudioSourceMessage {
   DashAudioSourceMessage({
-    required String id,
-    required String uri,
-    Map<String, String>? headers,
-    dynamic tag,
-  }) : super(id: id, uri: uri, headers: headers, tag: tag);
+    required super.id,
+    required super.uri,
+    super.headers,
+    super.tag,
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1080,11 +1172,11 @@ class DashAudioSourceMessage extends UriAudioSourceMessage {
 /// implementation.
 class HlsAudioSourceMessage extends UriAudioSourceMessage {
   HlsAudioSourceMessage({
-    required String id,
-    required String uri,
-    Map<String, String>? headers,
-    dynamic tag,
-  }) : super(id: id, uri: uri, headers: headers, tag: tag);
+    required super.id,
+    required super.uri,
+    super.headers,
+    super.tag,
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1101,9 +1193,9 @@ class SilenceAudioSourceMessage extends IndexedAudioSourceMessage {
   final Duration duration;
 
   SilenceAudioSourceMessage({
-    required String id,
+    required super.id,
     required this.duration,
-  }) : super(id: id);
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1121,11 +1213,11 @@ class ConcatenatingAudioSourceMessage extends AudioSourceMessage {
   final List<int> shuffleOrder;
 
   ConcatenatingAudioSourceMessage({
-    required String id,
+    required super.id,
     required this.children,
     required this.useLazyPreparation,
     required this.shuffleOrder,
-  }) : super(id: id);
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1145,12 +1237,12 @@ class ClippingAudioSourceMessage extends IndexedAudioSourceMessage {
   final Duration? end;
 
   ClippingAudioSourceMessage({
-    required String id,
+    required super.id,
     required this.child,
     this.start,
     this.end,
-    dynamic tag,
-  }) : super(id: id, tag: tag);
+    super.tag,
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1169,10 +1261,10 @@ class LoopingAudioSourceMessage extends AudioSourceMessage {
   final int count;
 
   LoopingAudioSourceMessage({
-    required String id,
+    required super.id,
     required this.child,
     required this.count,
-  }) : super(id: id);
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1296,9 +1388,9 @@ class AndroidLoudnessEnhancerMessage extends AudioEffectMessage {
   final double targetGain;
 
   AndroidLoudnessEnhancerMessage({
-    required bool enabled,
+    required super.enabled,
     required this.targetGain,
-  }) : super(enabled: enabled);
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1388,9 +1480,9 @@ class AndroidEqualizerMessage extends AudioEffectMessage {
   final AndroidEqualizerParametersMessage? parameters;
 
   AndroidEqualizerMessage({
-    required bool enabled,
+    required super.enabled,
     required this.parameters,
-  }) : super(enabled: enabled);
+  });
 
   @override
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
@@ -1399,3 +1491,13 @@ class AndroidEqualizerMessage extends AudioEffectMessage {
         'parameters': parameters?.toMap(),
       };
 }
+
+class SetWebCrossOriginRequest {
+  final WebCrossOriginMessage? crossOrigin;
+
+  SetWebCrossOriginRequest({required this.crossOrigin});
+}
+
+class SetWebCrossOriginResponse {}
+
+enum WebCrossOriginMessage { anonymous, useCredentials }
