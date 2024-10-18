@@ -891,7 +891,7 @@
         if (playerItem.status == AVPlayerItemStatusFailed) {
             if ([_orderInv[_index] intValue] + 1 < [_order count]) {
                 // account for automatic move to next item
-                _index = [_order[[_orderInv[_index] intValue] + 1] intValue];
+                // _index = [_order[[_orderInv[_index] intValue] + 1] intValue];
                 //NSLog(@"advance to next on error: index = %d", _index);
                 [self updateEndAction];
                 [self broadcastPlaybackEvent];
