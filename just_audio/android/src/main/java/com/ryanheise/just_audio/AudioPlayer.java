@@ -390,7 +390,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         }
         errorCount++;
 
-        final boolean possibleFixForChapterJumps = true;
+        final boolean possibleFixForChapterJumps = false;
         if (possibleFixForChapterJumps) {
             try {
                 Thread.sleep(1000);
