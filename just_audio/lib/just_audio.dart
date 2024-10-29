@@ -97,9 +97,10 @@ class AudioPlayer {
   /// subscribe to the new platform's events.
   StreamSubscription<PlayerDataMessage>? _playerDataSubscription;
 
-  StreamSubscription? _androidAudioAttributesSubscription;
-  StreamSubscription? _becomingNoisyEventSubscription;
-  StreamSubscription? _interruptionEventSubscription;
+  StreamSubscription<AndroidAudioAttributes>?
+      _androidAudioAttributesSubscription;
+  StreamSubscription<void>? _becomingNoisyEventSubscription;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionEventSubscription;
 
   final String _id;
   final _proxy = _ProxyHttpServer();
