@@ -2524,8 +2524,8 @@ class ConcatenatingAudioSource extends AudioSource {
   /// Creates a [ConcatenatingAudioSorce] with the specified [children]. If
   /// [useLazyPreparation] is `true`, children will be loaded/buffered as late
   /// as possible before needed for playback (currently supported on Android,
-  /// iOS, MacOS). When [AudioPlayer.shuffleModeEnabled] is `true`, [shuffleOrder]
-  /// will be used to determine the playback order (defaulting to
+  /// iOS, MacOS). When [AudioPlayer.shuffleModeEnabled] is `true`,
+  /// [shuffleOrder] will be used to determine the playback order (defaulting to
   /// [DefaultShuffleOrder]).
   ConcatenatingAudioSource({
     required this.children,
