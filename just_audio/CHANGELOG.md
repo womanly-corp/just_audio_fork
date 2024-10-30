@@ -2,6 +2,7 @@
 
 * Fix dealloc crash on iOS/macOS (@cristian1980).
 * Fix Dart memory leak on dispose (@MinSeungHyun).
+* Bump gradle to 8.5.0.
 
 ## 0.9.41
 
