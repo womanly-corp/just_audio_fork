@@ -1,6 +1,7 @@
 ## 0.9.42
 
 * Fix dealloc crash on iOS/macOS (@cristian1980).
+* Fix Dart memory leak on dispose (@MinSeungHyun).
 
 ## 0.9.41
 

@@ -97,6 +97,11 @@ class AudioPlayer {
   /// subscribe to the new platform's events.
   StreamSubscription<PlayerDataMessage>? _playerDataSubscription;
 
+  StreamSubscription<AndroidAudioAttributes>?
+      _androidAudioAttributesSubscription;
+  StreamSubscription<void>? _becomingNoisyEventSubscription;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionEventSubscription;
+
   final String _id;
   final _proxy = _ProxyHttpServer();
   AudioSource? _audioSource;
@@ -285,7 +290,7 @@ class AudioPlayer {
     // Respond to changes to AndroidAudioAttributes configuration.
     if (androidApplyAudioAttributes && _isAndroid()) {
       AudioSession.instance.then((audioSession) {
-        audioSession.configurationStream
+        _androidAudioAttributesSubscription = audioSession.configurationStream
             .map((conf) => conf.androidAudioAttributes)
             .where((attributes) => attributes != null)
             .cast<AndroidAudioAttributes>()
@@ -295,10 +300,12 @@ class AudioPlayer {
     }
     if (handleInterruptions) {
       AudioSession.instance.then((session) {
-        session.becomingNoisyEventStream.listen((_) {
+        _becomingNoisyEventSubscription =
+            session.becomingNoisyEventStream.listen((_) {
           pause();
         });
-        session.interruptionEventStream.listen((event) {
+        _interruptionEventSubscription =
+            session.interruptionEventStream.listen((event) {
           if (event.begin) {
             switch (event.type) {
               case AudioInterruptionType.duck:
@@ -1255,6 +1262,9 @@ class AudioPlayer {
     await _pitchSubject.close();
     await _sequenceSubject.close();
     await _shuffleIndicesSubject.close();
+    await _androidAudioAttributesSubscription?.cancel();
+    await _becomingNoisyEventSubscription?.cancel();
+    await _interruptionEventSubscription?.cancel();
   }
 
   /// Switch to using the native platform when [active] is `true` and using the
