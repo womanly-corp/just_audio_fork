@@ -1,6 +1,7 @@
 ## 0.9.43
 
 * Fix NPE in load on iOS/macOS.
+* Migrate to media3 ExoPlayer 1.4.1 on Android.
 
 ## 0.9.42
 
