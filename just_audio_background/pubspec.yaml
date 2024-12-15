@@ -13,7 +13,7 @@ dependencies:
   # just_audio_platform_interface:
   #   path: ../just_audio_platform_interface
   audio_service: ^0.18.14
-  audio_session: ^0.1.20
+  audio_session: ^0.1.23
   flutter:
     sdk: flutter
   flutter_web_plugins:

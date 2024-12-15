@@ -1,3 +1,7 @@
+## 0.9.43
+
+* Fix NPE in load on iOS/macOS.
+
 ## 0.9.42
 
 * Fix dealloc crash on iOS/macOS (@cristian1980).
