@@ -2598,13 +2598,12 @@ class ConcatenatingAudioSource extends AudioSource {
     if (_player != null) {
       _player!._broadcastSequence();
       await audioSource._setup(_player!);
-      ConcatenatingInsertAllRequest request = ConcatenatingInsertAllRequest(
-        id: _id,
-        index: index,
-        children: [audioSource._toMessage()],
-        shuffleOrder: List.of(_shuffleOrder.indices)
-      );
-      await (await _player!._platform).concatenatingInsertAll(request);
+      await (await _player!._platform).concatenatingInsertAll(
+          ConcatenatingInsertAllRequest(
+              id: _id,
+              index: index,
+              children: [audioSource._toMessage()],
+              shuffleOrder: List.of(_shuffleOrder.indices)));
     }
   }
 
@@ -2652,13 +2651,12 @@ class ConcatenatingAudioSource extends AudioSource {
     _shuffleOrder.removeRange(index, index + 1);
     if (_player != null) {
       _player!._broadcastSequence();
-      ConcatenatingRemoveRangeRequest request = ConcatenatingRemoveRangeRequest(
-        id: _id,
-        startIndex: index,
-        endIndex: index + 1,
-        shuffleOrder: List.of(_shuffleOrder.indices)
-      );
-      await (await _player!._platform).concatenatingRemoveRange(request);
+      await (await _player!._platform).concatenatingRemoveRange(
+          ConcatenatingRemoveRangeRequest(
+              id: _id,
+              startIndex: index,
+              endIndex: index + 1,
+              shuffleOrder: List.of(_shuffleOrder.indices)));
     }
   }
 
