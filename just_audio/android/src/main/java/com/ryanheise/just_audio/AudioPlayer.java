@@ -11,7 +11,6 @@ import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.exoplayer.DefaultLivePlaybackSpeedControl;
 import androidx.media3.exoplayer.DefaultLoadControl;
-import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.LivePlaybackSpeedControl;
 import androidx.media3.exoplayer.LoadControl;
@@ -23,22 +22,27 @@ import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.common.Metadata;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
 import androidx.media3.extractor.metadata.icy.IcyInfo;
-import androidx.media3.exoplayer.source.ClippingMediaSource;
-import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
-import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.exoplayer.source.ClippingMediaSource; // Deprecated
+// For some reason, this import triggers the [deprecation] warning, despite the
+// warnings being suppressed at each use.
+// import androidx.media3.exoplayer.source.ConcatenatingMediaSource; // Deprecated
+import androidx.media3.exoplayer.source.MediaSource; // Deprecated
+import androidx.media3.exoplayer.source.ProgressiveMediaSource; // Deprecated
 import androidx.media3.exoplayer.source.ShuffleOrder;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
-import androidx.media3.exoplayer.source.SilenceMediaSource;
+import androidx.media3.exoplayer.source.SilenceMediaSource; // Deprecated
 import androidx.media3.common.TrackGroup;
-import androidx.media3.exoplayer.dash.DashMediaSource;
-import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.exoplayer.dash.DashMediaSource; // Deprecated
+import androidx.media3.exoplayer.hls.HlsMediaSource; // Deprecated
+import androidx.media3.exoplayer.trackselection.TrackSelectionArray;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -512,10 +516,10 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             }
         } catch (IllegalStateException e) {
             e.printStackTrace();
-            result.error("Illegal state: " + e.getMessage(), null, null);
+            result.error("Illegal state: " + e.getMessage(), e.toString(), null);
         } catch (Exception e) {
             e.printStackTrace();
-            result.error("Error: " + e, null, null);
+            result.error("Error: " + e, e.toString(), null);
         } finally {
             broadcastPendingPlaybackEvent();
         }
@@ -555,10 +559,13 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         return new DefaultShuffleOrder(shuffleIndices, random.nextLong());
     }
 
-    private ConcatenatingMediaSource concatenating(final Object index) {
-        return (ConcatenatingMediaSource)mediaSources.get((String)index);
+
+    @SuppressWarnings("deprecation")
+    private androidx.media3.exoplayer.source.ConcatenatingMediaSource concatenating(final Object index) {
+        return (androidx.media3.exoplayer.source.ConcatenatingMediaSource)mediaSources.get((String)index);
     }
 
+    @SuppressWarnings("deprecation")
     private void setShuffleOrder(final Object json) {
         Map<?, ?> map = (Map<?, ?>)json;
         String id = mapGet(map, "id");
@@ -566,7 +573,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         if (mediaSource == null) return;
         switch ((String)mapGet(map, "type")) {
         case "concatenating":
-            ConcatenatingMediaSource concatenatingMediaSource = (ConcatenatingMediaSource)mediaSource;
+            androidx.media3.exoplayer.source.ConcatenatingMediaSource concatenatingMediaSource = (androidx.media3.exoplayer.source.ConcatenatingMediaSource)mediaSource;
             concatenatingMediaSource.setShuffleOrder(decodeShuffleOrder(mapGet(map, "shuffleOrder")));
             List<Object> children = mapGet(map, "children");
             for (Object child : children) {
@@ -609,6 +616,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         return extractorsFactory;
     }
 
+    @SuppressWarnings("deprecation")
     private MediaSource decodeAudioSource(final Object json) {
         Map<?, ?> map = (Map<?, ?>)json;
         String id = (String)map.get("id");
@@ -639,7 +647,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                     .createMediaSource();
         case "concatenating":
             MediaSource[] mediaSources = getAudioSourcesArray(map.get("children"));
-            return new ConcatenatingMediaSource(
+            return new androidx.media3.exoplayer.source.ConcatenatingMediaSource(
                     false, // isAtomic
                     (Boolean)map.get("useLazyPreparation"),
                     decodeShuffleOrder(mapGet(map, "shuffleOrder")),
@@ -657,7 +665,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             for (int i = 0; i < looperChildren.length; i++) {
                 looperChildren[i] = looperChild;
             }
-            return new ConcatenatingMediaSource(looperChildren);
+            return new androidx.media3.exoplayer.source.ConcatenatingMediaSource(looperChildren);
         default:
             throw new IllegalArgumentException("Unknown AudioSource type: " + map.get("type"));
         }
@@ -764,11 +772,30 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             if (livePlaybackSpeedControl != null) {
                 builder.setLivePlaybackSpeedControl(livePlaybackSpeedControl);
             }
-            if (offloadSchedulingEnabled) {
-                builder.setRenderersFactory(new DefaultRenderersFactory(context).setEnableAudioOffload(true));
-            }
             player = builder.build();
-            player.experimentalSetOffloadSchedulingEnabled(offloadSchedulingEnabled);
+            // The latest ExoPlayer enables offload scheduling by default but
+            // it doesn't support gapless playback below SDK level 33 or speec
+            // changing. To maintain backwards compatibility within just_audio,
+            // we set gapless playback and speed changing support as required,
+            // and let ExoPlayer choose whether it can enable offload
+            // scheduling depending on device support. If the app passes in
+            // androidOffloadSchedulingEnabled: true, we simply remove these
+            // requirements which may prevent gapless and speed changing from
+            // working, but will allow offload to work. A future release may
+            // expose more parameters to the app concerning offloading
+            // preferences.
+            player.setTrackSelectionParameters(
+                player.getTrackSelectionParameters()
+                    .buildUpon()
+                    .setAudioOffloadPreferences(
+                        new AudioOffloadPreferences.Builder()
+                            .setIsGaplessSupportRequired(!offloadSchedulingEnabled)
+                            .setIsSpeedChangeSupportRequired(!offloadSchedulingEnabled)
+                            .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                            .build()
+                    )
+                    .build()
+            );
             setAudioSessionId(player.getAudioSessionId());
             player.addListener(this);
         }

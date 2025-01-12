@@ -1,6 +1,17 @@
+## 0.9.43
+
+* Fix NPE in load on iOS/macOS.
+* Migrate to media3 ExoPlayer 1.4.1 on Android (@hansvdwd and @ryanheise).
+
+## 0.9.42
+
+* Fix dealloc crash on iOS/macOS (@cristian1980).
+* Fix Dart memory leak on dispose (@MinSeungHyun).
+* Bump gradle to 8.5.0.
+
 ## 0.9.41
 
-* Migrate from ExoPlayer to Media3 (@hansvdwd)
+* Fix stop() to cause play() to return on iOS.
 
 ## 0.9.40
 
