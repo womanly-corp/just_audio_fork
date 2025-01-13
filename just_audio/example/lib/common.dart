@@ -42,7 +42,7 @@ class SeekBarState extends State<SeekBar> {
         SliderTheme(
           data: _sliderThemeData.copyWith(
             thumbShape: HiddenThumbComponentShape(),
-            activeTrackColor: Colors.blue.shade100,
+            activeTrackColor: Colors.red, //Colors.blue.shade100,
             inactiveTrackColor: Colors.grey.shade300,
           ),
           child: ExcludeSemantics(
@@ -70,6 +70,7 @@ class SeekBarState extends State<SeekBar> {
         ),
         SliderTheme(
           data: _sliderThemeData.copyWith(
+            thumbShape: BarThumbComponentShape(),
             inactiveTrackColor: Colors.transparent,
           ),
           child: Slider(
@@ -129,6 +130,36 @@ class HiddenThumbComponentShape extends SliderComponentShape {
     required double textScaleFactor,
     required Size sizeWithOverflow,
   }) {}
+}
+
+class BarThumbComponentShape extends SliderComponentShape {
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(4, 30);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final paint = Paint()
+      ..color = sliderTheme.activeTrackColor ?? Colors.blue
+      ..style = PaintingStyle.fill;
+
+    context.canvas.drawRect(
+      Rect.fromCenter(center: center, width: 4, height: 30),
+      paint,
+    );
+  }
 }
 
 class PositionData {

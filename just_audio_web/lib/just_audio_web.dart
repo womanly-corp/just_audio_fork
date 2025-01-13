@@ -3,7 +3,6 @@ import 'dart:js_interop';
 import 'dart:math';
 
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:web/web.dart';
@@ -60,7 +59,7 @@ abstract class JustAudioPlayer extends AudioPlayerPlatform {
   /// Creates a platform player with the given [id].
   JustAudioPlayer({required String id}) : super(id);
 
-  @mustCallSuper
+  // @mustCallSuper
   Future<void> release() async {
     _eventController.close();
     _dataEventController.close();

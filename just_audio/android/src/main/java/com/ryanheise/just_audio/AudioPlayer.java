@@ -392,15 +392,30 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             sendError(String.valueOf(error.errorCode), error.getMessage(), mapOf("index", currentIndex));
         }
         errorCount++;
-        if (player.hasNextMediaItem() && currentIndex != null && errorCount <= 5) {
-            int nextIndex = currentIndex + 1;
-            Timeline timeline = player.getCurrentTimeline();
-            // This condition is due to: https://github.com/ryanheise/just_audio/pull/310
-            if (nextIndex < timeline.getWindowCount()) {
-                // TODO: pass in initial position here.
-                player.setMediaSource(mediaSource);
-                player.prepare();
-                player.seekTo(nextIndex, 0);
+
+        final boolean possibleFixForChapterJumps = false;
+        if (possibleFixForChapterJumps) {
+            try {
+                Thread.sleep(1000);
+            } catch (Exception ignored) {}
+
+            player.setMediaSource(mediaSource);
+            player.prepare();
+            player.seekTo(currentIndex, updatePosition); //getCurrentPosition() ?
+
+            player.setPlayWhenReady(true);
+            updatePosition();
+        } else { //original code
+            if (player.hasNextMediaItem() && currentIndex != null && errorCount <= 5) {
+                int nextIndex = currentIndex + 1;
+                Timeline timeline = player.getCurrentTimeline();
+                // This condition is due to: https://github.com/ryanheise/just_audio/pull/310
+                if (nextIndex < timeline.getWindowCount()) {
+                    // TODO: pass in initial position here.
+                    player.setMediaSource(mediaSource);
+                    player.prepare();
+                    player.seekTo(nextIndex, 0);
+                }
             }
         }
     }
