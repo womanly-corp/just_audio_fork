@@ -687,8 +687,8 @@
         [_indexedAudioSources[i] attach:_player initialPos:(i == _index ? initialPosition : kCMTimeInvalid)];
     }
 
-    if (_indexedAudioSources.count == 0 || !_player.currentItem ||
-            _player.currentItem.status == AVPlayerItemStatusReadyToPlay) {
+    if (_loadResult && (_indexedAudioSources.count == 0 || !_player.currentItem ||
+            _player.currentItem.status == AVPlayerItemStatusReadyToPlay)) {
         _processingState = ready;
         _loadResult(@{@"duration": @([self getDurationMicroseconds])});
         _loadResult = nil;
@@ -1326,13 +1326,15 @@
     }
 }
 
-- (void)dispose {
+- (void)dispose:(BOOL)calledFromDealloc {
     if (!_player) return;
     if (_processingState != none) {
         [_player pause];
 
         [self updatePosition];
-        [self broadcastPlaybackEvent];
+        if (!calledFromDealloc) {
+            [self broadcastPlaybackEvent];
+        }
         if (_playResult) {
             //NSLog(@"PLAY FINISHED DUE TO STOP");
             _playResult(@{});
