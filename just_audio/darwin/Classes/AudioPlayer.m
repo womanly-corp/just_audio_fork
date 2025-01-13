@@ -888,18 +888,7 @@
     } else if ([keyPath isEqualToString:@"currentItem"] && _player.currentItem) {
         IndexedPlayerItem *playerItem = (IndexedPlayerItem *)change[NSKeyValueChangeNewKey];
         //IndexedPlayerItem *oldPlayerItem = (IndexedPlayerItem *)change[NSKeyValueChangeOldKey];
-        if (playerItem.status == AVPlayerItemStatusFailed) {
-            if ([_orderInv[_index] intValue] + 1 < [_order count]) {
-                // account for automatic move to next item
-                _index = [_order[[_orderInv[_index] intValue] + 1] intValue];
-                //NSLog(@"advance to next on error: index = %d", _index);
-                [self updateEndAction];
-                [self broadcastPlaybackEvent];
-            } else {
-                //NSLog(@"error on last item");
-            }
-            return;
-        } else {
+        (void) fixSkiping {
             int expectedIndex = [self indexForItem:playerItem];
             if (_index != expectedIndex) {
                 // AVQueuePlayer will sometimes skip over error items without
@@ -909,6 +898,26 @@
                 [self updateEndAction];
                 [self broadcastPlaybackEvent];
             }
+        }
+        bool possibleFixForChapterJumps = true;
+        if (playerItem.status == AVPlayerItemStatusFailed) {
+            if(possibleFixForChapterJumps) {
+                fixSkiping();
+            }  else {
+                if ([_orderInv[_index] intValue] + 1 < [_order count]) {
+                    // account for automatic move to next item
+                    _index = [_order[[_orderInv[_index] intValue] + 1] intValue];
+                    //NSLog(@"advance to next on error: index = %d", _index);
+                    [self updateEndAction];
+                    [self broadcastPlaybackEvent];
+                } else {
+                    //NSLog(@"error on last item");
+                }
+                return;
+
+            }
+        } else {
+            fixSkiping();
         }
         //NSLog(@"currentItem changed. _index=%d", _index);
         _bufferUnconfirmed = YES;
