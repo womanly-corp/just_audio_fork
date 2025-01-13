@@ -888,21 +888,11 @@
     } else if ([keyPath isEqualToString:@"currentItem"] && _player.currentItem) {
         IndexedPlayerItem *playerItem = (IndexedPlayerItem *)change[NSKeyValueChangeNewKey];
         //IndexedPlayerItem *oldPlayerItem = (IndexedPlayerItem *)change[NSKeyValueChangeOldKey];
-        (void) fixSkiping {
-            int expectedIndex = [self indexForItem:playerItem];
-            if (_index != expectedIndex) {
-                // AVQueuePlayer will sometimes skip over error items without
-                // notifying this observer.
-                //NSLog(@"Queue change detected. Adjusting index from %d -> %d", _index, expectedIndex);
-                _index = expectedIndex;
-                [self updateEndAction];
-                [self broadcastPlaybackEvent];
-            }
-        }
+    
         bool possibleFixForChapterJumps = true;
         if (playerItem.status == AVPlayerItemStatusFailed) {
             if(possibleFixForChapterJumps) {
-                fixSkiping();
+                [self fixIndexSkipping:playerItem];
             }  else {
                 if ([_orderInv[_index] intValue] + 1 < [_order count]) {
                     // account for automatic move to next item
@@ -917,7 +907,7 @@
 
             }
         } else {
-            fixSkiping();
+            [self fixIndexSkipping:playerItem];
         }
         //NSLog(@"currentItem changed. _index=%d", _index);
         _bufferUnconfirmed = YES;
@@ -985,6 +975,17 @@
             _bufferedPosition = pos;
             [self broadcastPlaybackEvent];
         }
+    }
+}
+   
+- (void)fixIndexSkipping:(IndexedPlayerItem *)playerItem {
+    int expectedIndex = [self indexForItem:playerItem];
+    if (_index != expectedIndex) {
+        // AVQueuePlayer might skip over error items without notifying this observer.
+        NSLog(@"Queue change detected. Adjusting index from %d -> %d", _index, expectedIndex);
+        _index = expectedIndex;
+        [self updateEndAction];
+        [self broadcastPlaybackEvent];
     }
 }
 
