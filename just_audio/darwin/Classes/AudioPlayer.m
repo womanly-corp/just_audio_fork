@@ -889,7 +889,7 @@
         IndexedPlayerItem *playerItem = (IndexedPlayerItem *)change[NSKeyValueChangeNewKey];
         //IndexedPlayerItem *oldPlayerItem = (IndexedPlayerItem *)change[NSKeyValueChangeOldKey];
     
-        bool possibleFixForChapterJumps = true;
+        bool possibleFixForChapterJumps = false;
         if (playerItem.status == AVPlayerItemStatusFailed) {
             if(possibleFixForChapterJumps) {
                 [self fixIndexSkipping:playerItem];
