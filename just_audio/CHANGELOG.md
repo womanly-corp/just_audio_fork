@@ -1,3 +1,15 @@
+## 0.9.46
+
+* Fix SwiftPM support on macOS.
+
+## 0.9.45
+
+* Add setWebSinkId for web (@dganzella).
+
+## 0.9.44
+
+* Add support for SwiftPM.
+
 ## 0.9.43
 
 * Fix NPE in load on iOS/macOS.
