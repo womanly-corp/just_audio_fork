@@ -417,9 +417,9 @@ class _PlayerAudioHandler extends BaseAudioHandler
   List<MediaItem> get currentQueue => queue.value;
   StreamSubscription<TrackInfo>? _trackInfoSubscription;
 
-  final CustomCallbacks? customCallbacks;
+  CustomCallbacks? customCallbacks;
 
-  Future<void> _initPlayer(InitRequest initRequest, CustomCallbacks newCustomCallbacks) =>
+  Future<void> _initPlayer(InitRequest initRequest, CustomCallbacks? newCustomCallbacks) =>
       _lock.synchronized(() async {
         customCallbacks = newCustomCallbacks;
         final player = await _platform.init(initRequest);
