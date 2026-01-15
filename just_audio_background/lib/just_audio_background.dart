@@ -66,6 +66,8 @@ class JustAudioBackground {
     bool androidNotificationClickStartsActivity = true,
     bool androidNotificationOngoing = false,
     bool androidStopForegroundOnPause = true,
+    int androidForegroundTimeoutMinutes = 10,
+    bool androidAcquireWifiLock = false,
     int? artDownscaleWidth,
     int? artDownscaleHeight,
     Future<void> Function()? customOnRewind,
@@ -89,6 +91,8 @@ class JustAudioBackground {
             androidNotificationClickStartsActivity,
         androidNotificationOngoing: androidNotificationOngoing,
         androidStopForegroundOnPause: androidStopForegroundOnPause,
+        androidForegroundTimeoutMinutes: androidForegroundTimeoutMinutes,
+        androidAcquireWifiLock: androidAcquireWifiLock,
         artDownscaleWidth: artDownscaleWidth,
         artDownscaleHeight: artDownscaleHeight,
         fastForwardInterval: fastForwardInterval,
@@ -114,6 +118,8 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
     bool androidNotificationClickStartsActivity = true,
     bool androidNotificationOngoing = false,
     bool androidStopForegroundOnPause = true,
+    int androidForegroundTimeoutMinutes = 10,
+    bool androidAcquireWifiLock = false,
     int? artDownscaleWidth,
     int? artDownscaleHeight,
     Duration fastForwardInterval = const Duration(seconds: 10),
@@ -140,6 +146,8 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
             androidNotificationClickStartsActivity,
         androidNotificationOngoing: androidNotificationOngoing,
         androidStopForegroundOnPause: androidStopForegroundOnPause,
+        androidForegroundTimeoutMinutes: androidForegroundTimeoutMinutes,
+        androidAcquireWifiLock: androidAcquireWifiLock,
         artDownscaleWidth: artDownscaleWidth,
         artDownscaleHeight: artDownscaleHeight,
         fastForwardInterval: fastForwardInterval,
@@ -419,7 +427,8 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   CustomCallbacks? customCallbacks;
 
-  Future<void> _initPlayer(InitRequest initRequest, CustomCallbacks? newCustomCallbacks) =>
+  Future<void> _initPlayer(
+          InitRequest initRequest, CustomCallbacks? newCustomCallbacks) =>
       _lock.synchronized(() async {
         customCallbacks = newCustomCallbacks;
         final player = await _platform.init(initRequest);
