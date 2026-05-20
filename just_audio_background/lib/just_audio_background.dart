@@ -891,19 +891,30 @@ class _PlayerAudioHandler extends BaseAudioHandler
       androidCompactActionIndices: List.generate(controls.length, (i) => i)
           .where((i) => controls[i].action != MediaAction.stop)
           .toList(),
-      processingState: _justAudioEvent.errorCode != null
-          ? AudioProcessingState.error
-          : const {
-                ProcessingStateMessage.idle: AudioProcessingState.idle,
-                ProcessingStateMessage.loading: AudioProcessingState.loading,
-                ProcessingStateMessage.buffering:
-                    AudioProcessingState.buffering,
-                ProcessingStateMessage.ready: AudioProcessingState.ready,
-                ProcessingStateMessage.completed:
-                    AudioProcessingState.completed,
-              }[_justAudioEvent.processingState] ??
-              AudioProcessingState.idle,
-      playing: _playing &&
+      // WOM-1902: while hiding controls, also report `loading` (which
+      // audio_service maps to MediaSession STATE_CONNECTING) and
+      // `playing: false`. audio_service unconditionally sets
+      // ACTION_PLAY | ACTION_PAUSE on the MediaSession, so Android 13+'s
+      // MediaSession-driven notification would otherwise render a default
+      // play/pause button even with our empty controls list. Reporting a
+      // non-playing connecting state suppresses that default button.
+      processingState: _hideAllControls
+          ? AudioProcessingState.loading
+          : _justAudioEvent.errorCode != null
+              ? AudioProcessingState.error
+              : const {
+                    ProcessingStateMessage.idle: AudioProcessingState.idle,
+                    ProcessingStateMessage.loading:
+                        AudioProcessingState.loading,
+                    ProcessingStateMessage.buffering:
+                        AudioProcessingState.buffering,
+                    ProcessingStateMessage.ready: AudioProcessingState.ready,
+                    ProcessingStateMessage.completed:
+                        AudioProcessingState.completed,
+                  }[_justAudioEvent.processingState] ??
+                  AudioProcessingState.idle,
+      playing: !_hideAllControls &&
+          _playing &&
           !{ProcessingStateMessage.idle, ProcessingStateMessage.completed}
               .contains(_justAudioEvent.processingState),
       updatePosition: currentPosition,
