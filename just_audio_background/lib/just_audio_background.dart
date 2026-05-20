@@ -104,6 +104,19 @@ class JustAudioBackground {
           onFastForward: customOnFastForward,
         ));
   }
+
+  /// WOM-1902: hide or restore all controls on the system notification and
+  /// lock-screen player.
+  ///
+  /// Call with `true` when entering the "Trying to reconnect…" state so the
+  /// notification renders without play/pause/skip buttons; call with `false`
+  /// to restore the default control set. Safe to call before any audio is
+  /// loaded — the new value is applied on the next state broadcast.
+  static void setHideAllControls(bool hide) {
+    if (_playerAudioHandler._hideAllControls == hide) return;
+    _playerAudioHandler._hideAllControls = hide;
+    _playerAudioHandler._broadcastStateIfActive();
+  }
 }
 
 class _JustAudioBackgroundPlugin extends JustAudioPlatform {
@@ -407,6 +420,12 @@ class _PlayerAudioHandler extends BaseAudioHandler
   AudioSourceMessage? _source;
   bool _playing = false;
   double _speed = 1.0;
+
+  /// WOM-1902: when true, the broadcasted [PlaybackState] omits all media
+  /// controls and system actions so the system notification / lock screen
+  /// shows no buttons. Toggled via [JustAudioBackground.setHideAllControls]
+  /// while the player is in the "Trying to reconnect…" state.
+  bool _hideAllControls = false;
   _Seeker? _seeker;
   AudioServiceRepeatMode _repeatMode = AudioServiceRepeatMode.none;
   AudioServiceShuffleMode _shuffleMode = AudioServiceShuffleMode.none;
@@ -848,21 +867,27 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   /// Broadcasts the current state to all clients.
   void _broadcastState() {
-    final controls = [
-      kMediaControlRewind15seconds,
-      if (_playing) MediaControl.pause else MediaControl.play,
-      kMediaControlFastForward15seconds,
-      // if (!_playing) MediaControl.stop,
-    ];
+    // WOM-1902: while hidden, expose no controls / actions at all so the
+    // system notification and lock screen render without any buttons.
+    final controls = _hideAllControls
+        ? const <MediaControl>[]
+        : [
+            kMediaControlRewind15seconds,
+            if (_playing) MediaControl.pause else MediaControl.play,
+            kMediaControlFastForward15seconds,
+            // if (!_playing) MediaControl.stop,
+          ];
     playbackState.add(playbackState.nvalue!.copyWith(
       controls: controls,
-      systemActions: {
-        MediaAction.seek,
-        MediaAction.seekForward,
-        MediaAction.seekBackward,
-        // MediaAction.fastForward,
-        // MediaAction.rewind,
-      },
+      systemActions: _hideAllControls
+          ? const <MediaAction>{}
+          : {
+              MediaAction.seek,
+              MediaAction.seekForward,
+              MediaAction.seekBackward,
+              // MediaAction.fastForward,
+              // MediaAction.rewind,
+            },
       androidCompactActionIndices: List.generate(controls.length, (i) => i)
           .where((i) => controls[i].action != MediaAction.stop)
           .toList(),
