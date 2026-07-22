@@ -1,3 +1,12 @@
+## 0.0.1-beta.17.custom-4
+
+* WOM-2206: add `customOnPlay` / `customOnPause` / `customOnSkipToNext` /
+  `customOnSkipToPrevious` callbacks so the app can attribute playback
+  starts/stops initiated from the system notification / lock-screen / headset
+  controls to user intent. Play/pause callbacks fire only for system-transport
+  origin (app-originated just_audio calls are skipped); skip callbacks are
+  media-button exclusive.
+
 ## 0.0.1-beta.17
 
 * Fix notification dismissal on player.stop (@rserro).

@@ -17,9 +17,23 @@ class CustomCallbacks {
   final Future<void> Function()? onRewind;
   final Future<void> Function()? onFastForward;
 
+  /// WOM-2206: notify the app when a transport control is invoked so it can
+  /// attribute playback starts/stops to user intent. Fired from the system
+  /// notification / lock-screen / headset controls as well as the app's own
+  /// just_audio calls (both are user-initiated); OS auto-resume after an
+  /// interruption bypasses this handler and so is correctly left unattributed.
+  final Future<void> Function()? onPlay;
+  final Future<void> Function()? onPause;
+  final Future<void> Function()? onSkipToNext;
+  final Future<void> Function()? onSkipToPrevious;
+
   CustomCallbacks({
     this.onRewind,
     this.onFastForward,
+    this.onPlay,
+    this.onPause,
+    this.onSkipToNext,
+    this.onSkipToPrevious,
   });
 }
 
@@ -72,6 +86,10 @@ class JustAudioBackground {
     int? artDownscaleHeight,
     Future<void> Function()? customOnRewind,
     Future<void> Function()? customOnFastForward,
+    Future<void> Function()? customOnPlay,
+    Future<void> Function()? customOnPause,
+    Future<void> Function()? customOnSkipToNext,
+    Future<void> Function()? customOnSkipToPrevious,
     bool preloadArtwork = false,
     Map<String, dynamic>? androidBrowsableRootExtras,
   }) async {
@@ -102,6 +120,10 @@ class JustAudioBackground {
         customCallbacks: CustomCallbacks(
           onRewind: customOnRewind,
           onFastForward: customOnFastForward,
+          onPlay: customOnPlay,
+          onPause: customOnPause,
+          onSkipToNext: customOnSkipToNext,
+          onSkipToPrevious: customOnSkipToPrevious,
         ));
   }
 
@@ -264,12 +286,18 @@ class _JustAudioPlayer extends AudioPlayerPlatform {
 
   @override
   Future<PlayResponse> play(PlayRequest request) async {
+    // WOM-2206: this is the app's own just_audio play() call (not a system
+    // transport button). Mark the origin so the handler skips the media-button
+    // onPlay callback — the app already knows about its own play requests.
+    _playerAudioHandler._playFromAppApi = true;
     await _audioHandler.play();
     return PlayResponse();
   }
 
   @override
   Future<PauseResponse> pause(PauseRequest request) async {
+    // WOM-2206: see [play] — app-originated pause, not a system transport button.
+    _playerAudioHandler._pauseFromAppApi = true;
     await _audioHandler.pause();
     return PauseResponse();
   }
@@ -426,6 +454,13 @@ class _PlayerAudioHandler extends BaseAudioHandler
   /// shows no buttons. Toggled via [JustAudioBackground.setHideAllControls]
   /// while the player is in the "Trying to reconnect…" state.
   bool _hideAllControls = false;
+
+  /// WOM-2206: set by the app-facing platform play()/pause() right before they
+  /// route into this handler, so [play]/[pause] can tell an app-originated call
+  /// from a system-transport (notification / lock-screen / headset) button and
+  /// only fire the media-button callbacks for the latter. Read-and-reset once.
+  bool _playFromAppApi = false;
+  bool _pauseFromAppApi = false;
   _Seeker? _seeker;
   AudioServiceRepeatMode _repeatMode = AudioServiceRepeatMode.none;
   AudioServiceShuffleMode _shuffleMode = AudioServiceShuffleMode.none;
@@ -692,6 +727,9 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> skipToNext() async {
+    // WOM-2206: reached only via system transport controls (the app skips
+    // through just_audio's seek API), so this is always a user-initiated skip.
+    await customCallbacks?.onSkipToNext?.call();
     if (hasNext) {
       await skipToQueueItem(nextIndex!);
     }
@@ -699,6 +737,8 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> skipToPrevious() async {
+    // WOM-2206: see [skipToNext] — user-initiated via system transport controls.
+    await customCallbacks?.onSkipToPrevious?.call();
     if (hasPrevious) {
       await skipToQueueItem(previousIndex!);
     }
@@ -706,6 +746,14 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> play() async {
+    // WOM-2206: fire onPlay only for system transport / lock-screen / headset
+    // origin. App-originated plays set [_playFromAppApi] and are skipped
+    // (the app already attributes its own play calls).
+    final fromAppApi = _playFromAppApi;
+    _playFromAppApi = false;
+    if (!fromAppApi) {
+      await customCallbacks?.onPlay?.call();
+    }
     if (_justAudioEvent.processingState == ProcessingStateMessage.completed) {
       await skipToQueueItem(0);
     }
@@ -719,6 +767,12 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> pause() async {
+    // WOM-2206: see [play] — fire onPause only for system-transport origin.
+    final fromAppApi = _pauseFromAppApi;
+    _pauseFromAppApi = false;
+    if (!fromAppApi) {
+      await customCallbacks?.onPause?.call();
+    }
     _updatePosition();
     customEvent.add(_PlayingEvent(_playing = false));
     _broadcastState();
